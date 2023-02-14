@@ -1,0 +1,6 @@
+<component name="CopyrightManager">
+  <copyright>
+    <option name="notice" value="Copyright (C) 2020-&amp;#36;originalComment.match(&quot;Copyright \(c\) (\d+)&quot;, 1, &quot;-&quot;, &quot;&amp;#36;today.year&quot;)&amp;#36;today.year. IntBoat &lt;intboat@gmail.com&gt; - All Rights Reserved.&#10; Unauthorized copying of this file, via any medium is strictly prohibited&#10; Proprietary and confidential&#10;&#10;@package   &amp;#36;project.name\\&amp;#36;file.fileName&#10;@author    IntBoat &lt;intboat@gmail.com&gt;&#10;@copyright 2020-&amp;#36;originalComment.match(&quot;Copyright \(c\) (\d+)&quot;, 1, &quot;-&quot;, &quot;&amp;#36;today.year&quot;)&amp;#36;today.year. IntBoat &lt;intboat@gmail.com&gt;&#10;@modified  &amp;#36;file.lastModified" />
+    <option name="myName" value="Default" />
+  </copyright>
+</component>
