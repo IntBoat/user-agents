@@ -47,11 +47,11 @@ func init() {
 		for {
 			select {
 			case <-ticker.C:
-				_ = UpdateLatestUserAgents()
+				_ = UpdateLatestUserAgents(true)
 			}
 		}
 	}()
-	UpdateLatestUserAgents()
+	UpdateLatestUserAgents(false)
 }
 
 func GetRandomUserAgent() string {
@@ -62,9 +62,9 @@ func GetRandomUserAgent() string {
 	return ua[rand.Intn(len(ua))]
 }
 
-func UpdateLatestUserAgents() error {
+func UpdateLatestUserAgents(f bool) error {
 	lastUpdate := viper.GetTime("last-update")
-	if !lastUpdate.Before(time.Now().Add(-24 * time.Hour)) {
+	if !f && !lastUpdate.Before(time.Now().Add(-24*time.Hour)) {
 		return nil
 	}
 
