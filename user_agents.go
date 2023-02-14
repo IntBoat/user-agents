@@ -63,6 +63,11 @@ func GetRandomUserAgent() string {
 }
 
 func UpdateLatestUserAgents() error {
+	lastUpdate := viper.GetTime("last-update")
+	if !lastUpdate.Before(time.Now().Add(-24 * time.Hour)) {
+		return nil
+	}
+
 	var uas []string
 	for _, v := range []string{"chrome", "firefox", "safari", "edge"} {
 		var html string
@@ -92,6 +97,7 @@ func UpdateLatestUserAgents() error {
 		})
 	}
 	viper.Set("user-agent", uas)
+	viper.Set("last-update", time.Now())
 	err := viper.WriteConfig()
 	return err
 }
