@@ -9,7 +9,7 @@
  * @modified  2/15/23, 12:44 AM
  */
 
-package main
+package user_agents
 
 import (
 	"context"
@@ -56,10 +56,6 @@ func init() {
 			}
 		}
 	}()
-}
-
-func main() {
-	UpdateLatestUserAgents()
 }
 
 func GetRandomUserAgent() string {
