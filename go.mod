@@ -1,4 +1,4 @@
-module git.zedo.dev/user-agents
+module git.zedo.dev/IntBoat/user-agents
 
 go 1.20
 
