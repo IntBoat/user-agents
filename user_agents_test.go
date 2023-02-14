@@ -11,7 +11,25 @@
 
 package user_agents
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestUpdateLatestUserAgents(t *testing.T) {
+	err := UpdateLatestUserAgents(true)
+	if err != nil {
+		t.Errorf("Error occured: %s", err.Error())
+	}
+}
+
+func TestGetLatestUserAgents(t *testing.T) {
+	if len(GetLatestUserAgents()) == 0 {
+		t.Errorf("can not get latest user agents")
+	}
+}
+
+func TestGetRandomUserAgent(t *testing.T) {
+	if GetRandomUserAgent() == DefaultUserAgent {
+		t.Errorf("can not get random user agent")
+	}
 }

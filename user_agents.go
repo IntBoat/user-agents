@@ -12,7 +12,9 @@
 package user_agents
 
 import (
+	"bytes"
 	"context"
+	_ "embed"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/carlmjohnson/requests"
 	"github.com/spf13/viper"
@@ -31,17 +33,20 @@ var (
 		`(?i)macintosh`,
 		`(?i)linux (x86_64|i686)`,
 	}
+	DefaultUserAgent = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/109.0"
+
+	//go:embed user-agents.json
+	f []byte
 )
 
 func init() {
+	viper.New()
 	viper.SetConfigName(UserAgentFileName)
 	viper.SetConfigType(UserAgentFileType)
 	viper.AddConfigPath(".")
-	err := viper.ReadInConfig() // Find and read the config file
+	err := viper.ReadConfig(bytes.NewReader(f)) // Find and read the config file
 	if err != nil {
-		viper.SafeWriteConfig()
 	}
-	viper.WatchConfig()
 
 	ticker := time.NewTicker(24 * time.Hour)
 	go func() {
@@ -58,7 +63,7 @@ func init() {
 func GetRandomUserAgent() string {
 	ua := viper.GetStringSlice("user-agent")
 	if len(ua) == 0 {
-		return "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/109.0"
+		return DefaultUserAgent
 	}
 	return ua[rand.Intn(len(ua))]
 }
@@ -99,8 +104,8 @@ func UpdateLatestUserAgents(f bool) error {
 	}
 	viper.Set("user-agent", uas)
 	viper.Set("last-update", time.Now())
-	err := viper.WriteConfig()
-	return err
+	viper.WriteConfigAs(UserAgentFileName + "." + UserAgentFileType)
+	return nil
 }
 
 func GetLatestUserAgents() []string {
