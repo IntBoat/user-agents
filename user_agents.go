@@ -23,7 +23,8 @@ import (
 )
 
 var (
-	UserAgentFileName = "user-agents.json"
+	UserAgentFileName = "user-agents"
+	UserAgentFileType = "json"
 	APIBase           = "https://www.whatismybrowser.com/guides/the-latest-user-agent/"
 	IncludePatterns   = []string{
 		`(?i)windows nt \d+\.\d+`,
@@ -34,7 +35,7 @@ var (
 
 func init() {
 	viper.SetConfigName(UserAgentFileName)
-	viper.SetConfigType(strings.Split(UserAgentFileName, ".")[1])
+	viper.SetConfigType(UserAgentFileType)
 	viper.AddConfigPath(".")
 	err := viper.ReadInConfig() // Find and read the config file
 	if err != nil {
