@@ -51,6 +51,7 @@ func init() {
 			}
 		}
 	}()
+	UpdateLatestUserAgents()
 }
 
 func GetRandomUserAgent() string {
