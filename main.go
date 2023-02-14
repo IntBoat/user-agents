@@ -16,7 +16,6 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/carlmjohnson/requests"
 	"github.com/spf13/viper"
-	"log"
 	"math/rand"
 	"regexp"
 	"strings"
@@ -39,11 +38,7 @@ func init() {
 	viper.AddConfigPath(".")
 	err := viper.ReadInConfig() // Find and read the config file
 	if err != nil {
-		err := viper.WriteConfigAs(UserAgentFileName)
-		if err != nil {
-			log.Fatal("Error writing config file: ", err)
-			return
-		}
+		viper.SafeWriteConfig()
 	}
 	viper.WatchConfig()
 
