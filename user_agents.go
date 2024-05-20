@@ -18,6 +18,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/carlmjohnson/requests"
 	"github.com/spf13/viper"
+	"log"
 	"math/rand"
 	"regexp"
 	"strings"
@@ -33,7 +34,7 @@ var (
 		`(?i)macintosh`,
 		`(?i)linux (x86_64|i686)`,
 	}
-	DefaultUserAgent = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/109.0"
+	DefaultUserAgent = "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:126.0) Gecko/20100101 Firefox/126.0"
 
 	//go:embed user-agents.json
 	f []byte
@@ -57,7 +58,11 @@ func init() {
 			}
 		}
 	}()
-	UpdateLatestUserAgents(false)
+	err = UpdateLatestUserAgents(false)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 }
 
 func GetRandomUserAgent() string {
@@ -104,7 +109,11 @@ func UpdateLatestUserAgents(f bool) error {
 	}
 	viper.Set("user-agent", uas)
 	viper.Set("last-update", time.Now())
-	viper.WriteConfigAs(UserAgentFileName + "." + UserAgentFileType)
+	err := viper.WriteConfigAs(UserAgentFileName + "." + UserAgentFileType)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
 	return nil
 }
 
