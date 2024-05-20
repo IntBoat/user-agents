@@ -13,7 +13,6 @@ package user_agents
 
 import (
 	"bytes"
-	"context"
 	_ "embed"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/carlmjohnson/requests"
@@ -40,6 +39,7 @@ var (
 	f []byte
 )
 
+// init initializes the package by reading the user agent configuration file and starting a ticker to update the user agents every 24 hours.
 func init() {
 	viper.New()
 	viper.SetConfigName(UserAgentFileName)
@@ -65,6 +65,8 @@ func init() {
 	}
 }
 
+// GetRandomUserAgent returns a random user agent from the latest user agents list.
+// If the list is empty, it returns the default user agent.
 func GetRandomUserAgent() string {
 	ua := viper.GetStringSlice("user-agent")
 	if len(ua) == 0 {
@@ -73,48 +75,63 @@ func GetRandomUserAgent() string {
 	return ua[rand.Intn(len(ua))]
 }
 
-func UpdateLatestUserAgents(f bool) error {
+// UpdateLatestUserAgents updates the latest user agents from the provided API.
+// It retrieves the latest user agents for Chrome, Firefox, Safari, and Edge browsers.
+// It also checks if the last update was within the last 24 hours, and only updates if necessary.
+// It returns an error if any occurs during the update process.
+func UpdateLatestUserAgents(force bool) error {
+	// Get the last update time from the configuration file.
 	lastUpdate := viper.GetTime("last-update")
-	if !f && !lastUpdate.Before(time.Now().Add(-24*time.Hour)) {
+
+	// Check if the update is forced or if the last update was within the last 24 hours.
+	if !force && !lastUpdate.Before(time.Now().Add(-24*time.Hour)) {
 		return nil
 	}
 
+	// Initialize an empty slice to store the latest user agents.
 	var uas []string
+
+	// Iterate over the supported browsers (Chrome, Firefox, Safari, and Edge).
 	for _, v := range []string{"chrome", "firefox", "safari", "edge"} {
+		// Initialize an empty string to store the HTML content.
 		var html string
-		err := requests.
-			URL(APIBase + v).
-			UserAgent(GetRandomUserAgent()).
-			ToString(&html).
-			Fetch(context.Background())
-		if err != nil {
-			return err
-		}
 
-		// Load the HTML document
+		// Make a request to the API endpoint for the specified browser.
+		// Use the GetRandomUserAgent function as the UserAgent for the request.
+		requests.URL(APIBase + v).UserAgent(GetRandomUserAgent()).ToString(&html)
+
+		// Parse the HTML content using the goquery library.
 		doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+		// Check if an error occurred during the parsing.
 		if err != nil {
 			return err
 		}
 
-		// Find the review items
+		// Find all the review items containing the latest user agents.
 		doc.Find("td li span.code").Each(func(i int, s *goquery.Selection) {
+			// Iterate over the include patterns.
 			for _, pattern := range IncludePatterns {
+				// Compile the include pattern as a regular expression.
 				var include = regexp.MustCompile(pattern)
+
+				// Check if the current user agent matches any of the include patterns.
 				if include.MatchString(s.Text()) {
+					// Append the user agent to the slice of latest user agents.
 					uas = append(uas, s.Text())
 				}
 			}
 		})
 	}
+
+	// Set the latest user agents in the configuration file.
 	viper.Set("user-agent", uas)
+
+	// Set the current time as the last update time in the configuration file.
 	viper.Set("last-update", time.Now())
+
+	// Write the updated configuration file.
 	err := viper.WriteConfigAs(UserAgentFileName + "." + UserAgentFileType)
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-	return nil
+	return err
 }
 
 func GetLatestUserAgents() []string {
