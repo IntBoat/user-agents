@@ -2,7 +2,7 @@ name: Renew
 
 on:
   schedule:
-    - cron: "0 0 1 * *" # every month at 00:00 UTC
+    - cron: "0 0 * * 1" # every Monday at 00:00 UTC
   workflow_dispatch:
   push:
 
@@ -33,7 +33,7 @@ jobs:
       - name: Commit changes
         uses: https://github.com/stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "[ci skip] update cert"
+          commit_message: "[ci skip] update"
 
       - name: 💬 Telegram Notify
         uses: https://github.com/appleboy/telegram-action@master
