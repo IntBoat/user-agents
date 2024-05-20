@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2020-2023. IntBoat <intboat@gmail.com> - All Rights Reserved.
+ * Copyright (C) 2020-2024. IntBoat <intboat@gmail.com> - All Rights Reserved.
  *  Unauthorized copying of this file, via any medium is strictly prohibited
  *  Proprietary and confidential
  *
- * @package   user-agents\main.go
+ * @package   user-agents\user_agents.go
  * @author    IntBoat <intboat@gmail.com>
- * @copyright 2020-2023. IntBoat <intboat@gmail.com>
- * @modified  2/15/23, 12:44 AM
+ * @copyright 2020-2024. IntBoat <intboat@gmail.com>
+ * @modified  5/20/24, 11:33 AM
  */
 
 package user_agents
@@ -140,4 +140,27 @@ func UpdateLatestUserAgents(force bool) error {
 
 func GetLatestUserAgents() []string {
 	return viper.GetStringSlice("user-agent")
+}
+
+// GetRandomUserAgentByOSAndBrowser returns a random user agent from the latest user agents list that matches the specified OS and browser.
+// If no matching user agent is found, it returns the default user agent.
+//
+// Parameters:
+//   - os (string): The operating system to filter the user agents by.
+//   - browser (string): The browser to filter the user agents by.
+//
+// Returns:
+//   - (string): A random user agent that matches the specified OS and browser, or the default user agent if no matching user agent is found.
+func GetRandomUserAgentByOSAndBrowser(os, browser string) string {
+	ua := viper.GetStringSlice("user-agent")
+	var matchedUA []string
+	for _, agent := range ua {
+		if strings.Contains(strings.ToLower(agent), strings.ToLower(os)) && strings.Contains(strings.ToLower(agent), strings.ToLower(browser)) {
+			matchedUA = append(matchedUA, agent)
+		}
+	}
+	if len(matchedUA) == 0 {
+		return DefaultUserAgent
+	}
+	return matchedUA[rand.Intn(len(matchedUA))]
 }
