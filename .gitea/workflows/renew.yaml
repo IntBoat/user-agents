@@ -1,0 +1,53 @@
+name: Renew
+
+on:
+  schedule:
+    - cron: "0 0 1 * *" # every month at 00:00 UTC
+  workflow_dispatch:
+  push:
+
+jobs:
+  renew-cert:
+    runs-on: ubuntu-latest
+    env:
+      ACCESS_TOKEN: ${{ secrets.ACTIONS_TOKEN }}
+    permissions:
+      # Give the default GITHUB_TOKEN write permission to commit and push the
+      # added or changed files to the repository.
+      contents: write
+    steps:
+      - name: 🛠 Setup GIT
+        run: |
+          git config --global url.https://$ACCESS_TOKEN@git.zedo.dev/.insteadOf https://git.zedo.dev/
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git clone --recurse-submodules $GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git . > /dev/null 2>&1
+          echo "SHORT_SHA=`echo ${{ github.sha }} | cut -c1-8`" >> $GITHUB_ENV
+
+      - name: Renew
+        uses: docker://golang:latest
+        with:
+          args: |
+            go test -run TestUpdateLatestUserAgents
+
+      - name: Commit changes
+        uses: https://github.com/stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "[ci skip] update cert"
+
+      - name: 💬 Telegram Notify
+        uses: https://github.com/appleboy/telegram-action@master
+        if: always()
+        with:
+          to: ${{ secrets.TELEGRAM_TO }}
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          disable_web_page_preview: true
+          format: markdown
+          message: |
+            [Build ${{ gitea.repository }}#${{ gitea.run_number }}](https://git.zedo.dev/${{ gitea.repository }}/actions/runs/${{ gitea.run_number }}): *${{ job.status }}*
+            ```
+            Author:  ${{ gitea.actor }}
+            Ref:     ${{ gitea.ref }}
+            Event:   ${{ gitea.event_name }}
+            Commit:  ${{ env.SHORT_SHA }}
+            ```

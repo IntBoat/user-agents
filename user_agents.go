@@ -13,6 +13,7 @@ package user_agents
 
 import (
 	"bytes"
+	"context"
 	_ "embed"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/carlmjohnson/requests"
@@ -98,7 +99,10 @@ func UpdateLatestUserAgents(force bool) error {
 
 		// Make a request to the API endpoint for the specified browser.
 		// Use the GetRandomUserAgent function as the UserAgent for the request.
-		requests.URL(APIBase + v).UserAgent(GetRandomUserAgent()).ToString(&html)
+		err := requests.URL(APIBase + v).UserAgent(GetRandomUserAgent()).ToString(&html).Fetch(context.Background())
+		if err != nil {
+			return err
+		}
 
 		// Parse the HTML content using the goquery library.
 		doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
