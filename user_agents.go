@@ -14,6 +14,7 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"fmt"
 	"log"
 	"math/rand"
 	"regexp"
@@ -56,21 +57,40 @@ var (
 
 // init initializes the package by reading the user agent configuration file and starting a ticker to update the user agents every 24 hours.
 func init() {
-	viper.New()
 	viper.SetConfigName(UserAgentFileName)
 	viper.SetConfigType(UserAgentFileType)
 	viper.AddConfigPath(".")
 
 	if err := viper.ReadConfig(bytes.NewReader(f)); err != nil {
 		log.Printf("Warning: Failed to read config: %v", err)
+	} else {
+		seedCacheFromViper()
 	}
 
 	// 啟動背景更新任務
 	go startBackgroundUpdate()
 
-	// 初始更新
+	// 初始更新（失敗時保留已灌入的 embed 快取）
 	if err := UpdateLatestUserAgents(false); err != nil {
 		log.Printf("Initial update failed: %v", err)
+	}
+}
+
+// seedCacheFromViper loads embedded/config user agents into the in-memory cache.
+func seedCacheFromViper() {
+	uas := viper.GetStringSlice("user-agent")
+	if len(uas) == 0 {
+		return
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	userAgentsCache = append([]string(nil), uas...)
+	if t := viper.GetTime("last-update"); !t.IsZero() {
+		cacheTime = t
+	} else {
+		cacheTime = time.Now()
 	}
 }
 
@@ -103,11 +123,10 @@ func GetRandomUserAgent() string {
 // It also checks if the last update was within the last 24 hours, and only updates if necessary.
 // It returns an error if any occurs during the update process.
 func UpdateLatestUserAgents(force bool) error {
-	mu.Lock()
-	defer mu.Unlock()
-
-	// 檢查是否需要更新
-	if !force && time.Since(cacheTime) < cacheValid {
+	mu.RLock()
+	skip := !force && !cacheTime.IsZero() && time.Since(cacheTime) < cacheValid
+	mu.RUnlock()
+	if skip {
 		return nil
 	}
 
@@ -115,91 +134,102 @@ func UpdateLatestUserAgents(force bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// 使用 map 去重
-	uaSet := make(map[string]bool)
+	type fetchResult struct {
+		uas []string
+		err error
+	}
 
-	// 並發獲取所有瀏覽器的用戶代理
+	results := make(chan fetchResult, len(supportedBrowsers))
 	var wg sync.WaitGroup
-	errChan := make(chan error, len(supportedBrowsers))
 
 	for _, browser := range supportedBrowsers {
 		wg.Add(1)
 		go func(b string) {
 			defer wg.Done()
-			if err := fetchUserAgentsForBrowser(ctx, b, uaSet); err != nil {
-				errChan <- err
-			}
+			uas, err := fetchUserAgentsForBrowser(ctx, b)
+			results <- fetchResult{uas: uas, err: err}
 		}(browser)
 	}
 
 	wg.Wait()
-	close(errChan)
+	close(results)
 
-	// 檢查是否有錯誤
-	if err := <-errChan; err != nil {
-		return err
+	uaSet := make(map[string]bool)
+	var firstErr error
+	for r := range results {
+		if r.err != nil && firstErr == nil {
+			firstErr = r.err
+		}
+		for _, ua := range r.uas {
+			uaSet[ua] = true
+		}
+	}
+	if firstErr != nil {
+		return firstErr
+	}
+	if len(uaSet) == 0 {
+		return fmt.Errorf("no user agents fetched; keeping existing cache")
 	}
 
-	// 轉換為切片
-	var uas []string
+	uas := make([]string, 0, len(uaSet))
 	for ua := range uaSet {
 		uas = append(uas, ua)
 	}
 
-	// 更新快取
-	userAgentsCache = uas
-	cacheTime = time.Now()
+	now := time.Now()
 
-	// 更新配置文件
+	mu.Lock()
+	defer mu.Unlock()
+
+	userAgentsCache = uas
+	cacheTime = now
 	viper.Set("user-agent", uas)
-	viper.Set("last-update", cacheTime)
+	viper.Set("last-update", now)
 
 	return viper.WriteConfigAs(UserAgentFileName + "." + UserAgentFileType)
 }
 
-// fetchUserAgentsForBrowser fetches user agents for a specific browser
-func fetchUserAgentsForBrowser(ctx context.Context, browser string, uaSet map[string]bool) error {
+// fetchUserAgentsForBrowser fetches user agents for a specific browser.
+// It returns a dedicated slice so concurrent callers do not share a map.
+func fetchUserAgentsForBrowser(ctx context.Context, browser string) ([]string, error) {
 	var html string
 
-	// 使用隨機用戶代理進行請求
+	mu.RLock()
 	userAgent := DefaultUserAgent
 	if len(userAgentsCache) > 0 {
 		userAgent = userAgentsCache[rand.Intn(len(userAgentsCache))]
 	}
+	mu.RUnlock()
 
 	err := requests.URL(APIBase + browser).
 		UserAgent(userAgent).
 		ToString(&html).
 		Fetch(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// 使用互斥鎖保護 map 寫入
-	var mu sync.Mutex
+	var uas []string
 	doc.Find("td li span.code").Each(func(i int, s *goquery.Selection) {
 		ua := strings.TrimSpace(s.Text())
 		if ua == "" {
 			return
 		}
 
-		// 檢查是否匹配包含模式
 		for _, pattern := range includePatterns {
 			if pattern.MatchString(ua) {
-				mu.Lock()
-				uaSet[ua] = true
-				mu.Unlock()
+				uas = append(uas, ua)
 				break
 			}
 		}
 	})
 
-	return nil
+	return uas, nil
 }
 
 // GetLatestUserAgents returns all cached user agents
@@ -250,5 +280,5 @@ func GetUserAgentCount() int {
 func IsCacheValid() bool {
 	mu.RLock()
 	defer mu.RUnlock()
-	return time.Since(cacheTime) < cacheValid
+	return !cacheTime.IsZero() && time.Since(cacheTime) < cacheValid
 }
